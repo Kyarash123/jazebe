@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>زنجیر متحرک - شبیه سازی فیزیکی</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        
+        .header {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            padding: 0 20px;
+            z-index: 100;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #ff9a9e 0%, #fad0c4 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        .subtitle {
+            font-size: 1.1rem;
+            color: #aaa;
+            max-width: 800px;
+            margin: 0 auto 20px;
+            line-height: 1.6;
+        }
+        
+        .controls {
+            background-color: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 15px;
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            max-width: 90%;
+        }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        label {
+            font-size: 0.9rem;
+            color: #ccc;
+        }
+        
+        input[type="range"] {
+            width: 120px;
+            cursor: pointer;
+        }
+        
+        .value-display {
+            min-width: 30px;
+            text-align: left;
+            color: #ff9a9e;
+            font-weight: bold;
+        }
+        
+        #chainContainer {
+            position: relative;
+            margin-top: 20px;
+            width: 100%;
+            height: 70vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        canvas {
+            display: block;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+        
+        .instructions {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            font-size: 0.9rem;
+            color: #aaa;
+            padding: 0 20px;
+        }
+        
+        .instructions p {
+            margin: 5px 0;
+        }
+        
+        .highlight {
+            color: #ff9a9e;
+            font-weight: bold;
+        }
+        
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.8rem;
+            }
+            
+            .subtitle {
+                font-size: 1rem;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+            }
+            
+            .control-group {
+                width: 100%;
+                justify-content: space-between;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>شبیه سازی زنجیر متحرک</h1>
+        <p class="subtitle">یک زنجیر فیزیکی مبتنی بر جاذبه و نیروی کشسانی که به حرکات موس واکنش نشان می‌دهد. تنظیمات مختلف را امتحان کنید!</p>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="gravity">جاذبه:</label>
+                <input type="range" id="gravity" min="0" max="200" value="100">
+                <span id="gravityValue" class="value-display">100</span>
+            </div>
+            
+            <div class="control-group">
+                <label for="elasticity">کشسانی:</label>
+                <input type="range" id="elasticity" min="10" max="200" value="100">
+                <span id="elasticityValue" class="value-display">100</span>
+            </div>
+            
+            <div class="control-group">
+                <label for="friction">اصطکاک:</label>
+                <input type="range" id="friction" min="1" max="100" value="15">
+                <span id="frictionValue" class="value-display">15</span>
+            </div>
+            
+            <div class="control-group">
+                <label for="chainLength">طول زنجیر:</label>
+                <input type="range" id="chainLength" min="5" max="30" value="15">
+                <span id="chainLengthValue" class="value-display">15</span>
+            </div>
+        </div>
+    </div>
+    
+    <div id="chainContainer">
+        <canvas id="chainCanvas"></canvas>
+    </div>
+    
+    <div class="instructions">
+        <p>برای تعامل با زنجیر، <span class="highlight">ماوس خود را حرکت دهید</span> یا <span class="highlight">روی زنجیر کلیک و بکشید</span>.</p>
+        <p>از اسلایدرها برای تنظیم خصوصیات فیزیکی زنجیر استفاده کنید.</p>
+    </div>
+
+    <script>
+        // تنظیمات اولیه
+        const canvas = document.getElementById('chainCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // تنظیم اندازه کانواس
+        function resizeCanvas() {
+            const container = document.getElementById('chainContainer');
+            canvas.width = Math.min(container.clientWidth, 1000);
+            canvas.height = Math.min(container.clientHeight, 600);
+        }
+        
+        // تنظیم اولیه
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // تنظیمات زنجیر
+        let gravity = 1.0;
+        let elasticity = 1.0;
+        let friction = 0.85;
+        let chainLength = 15;
+        
+        // اتصال کنترل‌ها
+        const gravitySlider = document.getElementById('gravity');
+        const elasticitySlider = document.getElementById('elasticity');
+        const frictionSlider = document.getElementById('friction');
+        const chainLengthSlider = document.getElementById('chainLength');
+        const gravityValue = document.getElementById('gravityValue');
+        const elasticityValue = document.getElementById('elasticityValue');
+        const frictionValue = document.getElementById('frictionValue');
+        const chainLengthValue = document.getElementById('chainLengthValue');
+        
+        gravitySlider.addEventListener('input', function() {
+            gravity = this.value / 100;
+            gravityValue.textContent = this.value;
+        });
+        
+        elasticitySlider.addEventListener('input', function() {
+            elasticity = this.value / 100;
+            elasticityValue.textContent = this.value;
+        });
+        
+        frictionSlider.addEventListener('input', function() {
+            friction = this.value / 100;
+            frictionValue.textContent = this.value;
+        });
+        
+        chainLengthSlider.addEventListener('input', function() {
+            chainLength = parseInt(this.value);
+            chainLengthValue.textContent = chainLength;
+            initChain();
+        });
+        
+        // کلاس برای هر حلقه زنجیر
+        class ChainLink {
+            constructor(x, y, radius, index) {
+                this.x = x;
+                this.y = y;
+                this.prevX = x;
+                this.prevY = y;
+                this.radius = radius;
+                this.index = index;
+                this.color = this.getLinkColor(index);
+            }
+            
+            // ایجاد رنگ برای حلقه بر اساس موقعیت
+            getLinkColor(index) {
+                const hue = 10 + (index * 8); // محدوده رنگ قرمز-نارنجی
+                return `hsl(${hue}, 90%, 60%)`;
+            }
+            
+            // به روز رسانی موقعیت حلقه
+            update(mouseX, mouseY, mouseRadius, isMouseDown) {
+                // اعمال جاذبه
+                const gravityForce = gravity;
+                this.y += gravityForce;
+                
+                // اعمال کشسانی بین حلقه‌ها
+                if (this.index > 0) {
+                    const prevLink = chainLinks[this.index - 1];
+                    const dx = prevLink.x - this.x;
+                    const dy = prevLink.y - this.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    const targetDistance = this.radius * 2;
+                    
+                    if (distance > targetDistance) {
+                        const force = (distance - targetDistance) * elasticity * 0.5;
+                        const nx = dx / distance;
+                        const ny = dy / distance;
+                        
+                        this.x += nx * force;
+                        this.y += ny * force;
+                        prevLink.x -= nx * force;
+                        prevLink.y -= ny * force;
+                    }
+                }
+                
+                // برهم‌کنش با موس
+                const dx = mouseX - this.x;
+                const dy = mouseY - this.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < mouseRadius && isMouseDown) {
+                    const force = (mouseRadius - distance) / mouseRadius * 10;
+                    const nx = dx / distance;
+                    const ny = dy / distance;
+                    
+                    this.x -= nx * force;
+                    this.y -= ny * force;
+                }
+                
+                // اعمال اینرسی و اصطکاک
+                const velocityX = this.x - this.prevX;
+                const velocityY = this.y - this.prevY;
+                
+                this.prevX = this.x;
+                this.prevY = this.y;
+                
+                this.x += velocityX * friction;
+                this.y += velocityY * friction;
+                
+                // نگه داشتن حلقه اول در مرکز
+                if (this.index === 0) {
+                    this.x = canvas.width / 2;
+                    this.y = canvas.height / 3;
+                }
+                
+                // اطمینان از ماندن حلقه‌ها در محدوده کانواس
+                this.x = Math.max(this.radius, Math.min(canvas.width - this.radius, this.x));
+                this.y = Math.max(this.radius, Math.min(canvas.height - this.radius, this.y));
+            }
+            
+            // رسم حلقه زنجیر
+            draw() {
+                // رسم سایه
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+                ctx.shadowBlur = 15;
+                ctx.shadowOffsetX = 3;
+                ctx.shadowOffsetY = 3;
+                
+                // رسم حلقه
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                
+                // افزودن برجستگی داخلی
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius * 0.7, 0, Math.PI * 2);
+                const gradient = ctx.createRadialGradient(
+                    this.x - this.radius * 0.3, this.y - this.radius * 0.3, 1,
+                    this.x, this.y, this.radius * 0.7
+                );
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
+                gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                ctx.fillStyle = gradient;
+                ctx.fill();
+                
+                // غیرفعال کردن سایه برای عناصر بعدی
+                ctx.shadowColor = 'transparent';
+                ctx.shadowBlur = 0;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 0;
+                
+                // رسم اتصال بین حلقه‌ها
+                if (this.index > 0) {
+                    const prevLink = chainLinks[this.index - 1];
+                    
+                    // رسم خط اتصال
+                    ctx.beginPath();
+                    ctx.moveTo(prevLink.x, prevLink.y);
+                    ctx.lineTo(this.x, this.y);
+                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = 'rgba(255, 200, 100, 0.7)';
+                    ctx.stroke();
+                    
+                    // افزودن سایه به خط
+                    ctx.beginPath();
+                    ctx.moveTo(prevLink.x, prevLink.y);
+                    ctx.lineTo(this.x, this.y);
+                    ctx.lineWidth = 5;
+                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+                    ctx.stroke();
+                }
+            }
+        }
+        
+        // آرایه‌ای برای نگهداری حلقه‌های زنجیر
+        let chainLinks = [];
+        
+        // مقداردهی اولیه زنجیر
+        function initChain() {
+            chainLinks = [];
+            const startX = canvas.width / 2;
+            const startY = canvas.height / 3;
+            const linkRadius = 15;
+            const linkSpacing = linkRadius * 2;
+            
+            for (let i = 0; i < chainLength; i++) {
+                const link = new ChainLink(
+                    startX,
+                    startY + i * linkSpacing,
+                    linkRadius,
+                    i
+                );
+                chainLinks.push(link);
+            }
+        }
+        
+        // متغیرهای مربوط به موس
+        let mouseX = canvas.width / 2;
+        let mouseY = canvas.height / 2;
+        let isMouseDown = false;
+        const mouseRadius = 100;
+        
+        // ردیابی موقعیت موس
+        canvas.addEventListener('mousemove', function(e) {
+            const rect = canvas.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+            mouseY = e.clientY - rect.top;
+        });
+        
+        canvas.addEventListener('mousedown', function() {
+            isMouseDown = true;
+        });
+        
+        canvas.addEventListener('mouseup', function() {
+            isMouseDown = false;
+        });
+        
+        canvas.addEventListener('mouseleave', function() {
+            isMouseDown = false;
+        });
+        
+        // تابع انیمیشن
+        function animate() {
+            // پاک کردن کانواس با افکت شفاف برای دنباله‌دار کردن حرکت
+            ctx.fillStyle = 'rgba(26, 26, 46, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // به روز رسانی و رسم حلقه‌های زنجیر
+            for (let i = 0; i < chainLinks.length; i++) {
+                chainLinks[i].update(mouseX, mouseY, mouseRadius, isMouseDown);
+                chainLinks[i].draw();
+            }
+            
+            // رسم منطقه تاثیر موس
+            if (isMouseDown) {
+                ctx.beginPath();
+                ctx.arc(mouseX, mouseY, mouseRadius, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 100, 100, 0.1)';
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(255, 100, 100, 0.3)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+            
+            requestAnimationFrame(animate);
+        }
+        
+        // شروع اجرا
+        initChain();
+        animate();
+        
+        // نمایش مقادیر اولیه
+        gravityValue.textContent = gravitySlider.value;
+        elasticityValue.textContent = elasticitySlider.value;
+        frictionValue.textContent = frictionSlider.value;
+        chainLengthValue.textContent = chainLengthSlider.value;
+    </script>
+</body>
+</html>
